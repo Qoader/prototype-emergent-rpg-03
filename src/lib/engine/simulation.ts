@@ -1,50 +1,46 @@
-import { findPath, distance, tileAt } from './grid';
-import { generateMap, heroSpawn } from './generate';
-import type { Entity, GridPoint, SimulationState, WorldEvent } from './types';
-
-const maxEvents = 8;
-
-function event(state: SimulationState, text: string): void {
-  const next: WorldEvent = { id: `${state.time}-${text}`, time: state.time, text };
-  state.events = [next, ...state.events].slice(0, maxEvents);
-}
+import { findPath, tileAt } from './grid';
+import { generateMap } from './generate';
+import { createRandom } from './random';
+import type { Entity, GridPoint, SimulationState } from './types';
 
 function actor(state: SimulationState, id: string): Entity {
   return state.entities.find((entity) => entity.id === id)!;
 }
 
 export function createWorld(seed: string): SimulationState {
-  const state: SimulationState = {
-    seed,
-    time: 0,
-    map: generateMap(seed),
-    entities: [
-      { id: 'hero', kind: 'hero', name: 'The Wayfarer', position: heroSpawn, route: [] },
-      {
-        id: 'guard',
-        kind: 'guard',
-        name: 'Ashwood Guard',
-        position: { x: 5, y: 11 },
+  const map = generateMap(seed);
+  const random = createRandom(`${seed}:residents`);
+  const capital = map.settlements.find((settlement) => settlement.kind === 'capital')!;
+  const entities: Entity[] = [
+    {
+      id: 'hero',
+      kind: 'hero',
+      name: 'The Wayfarer',
+      position: { ...capital.position },
+      route: [],
+      home: { ...capital.position },
+      color: 0xf6ce72,
+    },
+  ];
+  for (const settlement of map.settlements) {
+    const count = settlement.kind === 'capital' ? 3 : settlement.kind === 'city' ? 2 : 1;
+    for (let index = 0; index < count; index += 1) {
+      const position = {
+        x: settlement.position.x + (index % 2),
+        y: settlement.position.y + (index === 2 ? 1 : 0),
+      };
+      entities.push({
+        id: `resident-${settlement.id}-${index}`,
+        kind: 'resident',
+        name: `${settlement.name} Resident`,
+        position,
+        home: { ...settlement.position },
         route: [],
-        home: { x: 5, y: 11 },
-      },
-      {
-        id: 'threat',
-        kind: 'threat',
-        name: 'Gloam Pack',
-        position: { x: 23, y: 11 },
-        route: [],
-        home: { x: 25, y: 14 },
-      },
-    ],
-    facts: { villageAlarm: false, threatRepelled: false, shrineBlessed: false },
-    events: [],
-    paused: false,
-    ruleCooldowns: {},
-  };
-  event(state, 'You awaken on the old Ember Road.');
-  reveal(state, heroSpawn);
-  return state;
+        color: [0xd79772, 0x8dbad3, 0xb69ad6, 0x9fc27e][Math.floor(random() * 4)],
+      });
+    }
+  }
+  return { seed, time: 0, map, entities, paused: false };
 }
 
 export function requestMove(state: SimulationState, destination: GridPoint): boolean {
@@ -55,67 +51,38 @@ export function requestMove(state: SimulationState, destination: GridPoint): boo
   return true;
 }
 
-function reveal(state: SimulationState, point: GridPoint): void {
-  for (const tile of state.map.tiles) {
-    if (distance(tile, point) <= 3) tile.discovered = true;
-  }
-}
-
 function moveOne(entity: Entity): void {
   const next = entity.route.shift();
   if (next) entity.position = next;
 }
 
-function runRules(state: SimulationState): void {
-  const hero = actor(state, 'hero');
-  const guard = actor(state, 'guard');
-  const threat = actor(state, 'threat');
-  const village = { x: 5, y: 11 };
-  const shrine = { x: 16, y: 7 };
-
-  if (
-    !state.facts.villageAlarm &&
-    !state.facts.threatRepelled &&
-    distance(threat.position, village) <= 8
-  ) {
-    state.facts.villageAlarm = true;
-    guard.route = findPath(state.map, guard.position, threat.position);
-    event(state, 'Ashwood rings its bell: the Gloam Pack stalks the road.');
-  }
-  if (
-    state.facts.villageAlarm &&
-    !state.facts.threatRepelled &&
-    distance(guard.position, threat.position) <= 1
-  ) {
-    state.facts.threatRepelled = true;
-    state.facts.villageAlarm = false;
-    threat.route = findPath(state.map, threat.position, threat.home!);
-    event(state, 'The Ashwood Guard drives the Gloam Pack back toward the ruins.');
-  }
-  if (!state.facts.shrineBlessed && distance(hero.position, shrine) <= 1) {
-    state.facts.shrineBlessed = true;
-    event(state, 'The shrine-fire answers your presence; the wilds grow brighter.');
-  }
-  const tile = tileAt(state.map, hero.position);
-  if (tile?.landmark && !state.ruleCooldowns[`visit:${tile.landmark}`]) {
-    state.ruleCooldowns[`visit:${tile.landmark}`] = 1;
-    event(
-      state,
-      `You discover ${tile.landmark === 'village' ? 'Ashwood' : `an ancient ${tile.landmark}`}.`,
-    );
-  }
+function residentDestination(state: SimulationState, resident: Entity): GridPoint | undefined {
+  const tile = tileAt(state.map, resident.home!);
+  const settlement = state.map.settlements.find(
+    (candidate) =>
+      candidate.id === tile?.settlementId ||
+      (candidate.position.x === resident.home!.x && candidate.position.y === resident.home!.y),
+  );
+  if (!settlement) return undefined;
+  const phase = (state.time + resident.id.length * 17) % 4;
+  return {
+    x: settlement.position.x + (phase === 0 ? 1 : phase === 1 ? -1 : 0),
+    y: settlement.position.y + (phase === 2 ? 1 : phase === 3 ? -1 : 0),
+  };
 }
 
 export function tick(state: SimulationState): void {
   if (state.paused) return;
   state.time += 1;
   moveOne(actor(state, 'hero'));
-  if (state.time % 2 === 0) moveOne(actor(state, 'guard'));
-  if (state.time % 3 === 0 && !state.facts.threatRepelled) {
-    const threat = actor(state, 'threat');
-    threat.route = findPath(state.map, threat.position, { x: 5, y: 11 });
-    moveOne(threat);
+  if (state.time % 5 !== 0) return;
+  for (const resident of state.entities.filter((entity) => entity.kind === 'resident')) {
+    if (resident.route.length) {
+      moveOne(resident);
+      continue;
+    }
+    const destination = residentDestination(state, resident);
+    if (destination)
+      resident.route = findPath(state.map, resident.position, destination).slice(0, 4);
   }
-  reveal(state, actor(state, 'hero').position);
-  runRules(state);
 }

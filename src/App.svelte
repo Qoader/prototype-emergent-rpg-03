@@ -23,6 +23,15 @@
     state.paused = !state.paused;
     update(state);
   }
+
+  function location(): string {
+    const hero = state.entities.find((entity) => entity.id === 'hero');
+    if (!hero) return '';
+    const tile = state.map.tiles[hero.position.y * state.map.width + hero.position.x];
+    const country = state.map.countries.find((candidate) => candidate.id === tile?.countryId);
+    const settlement = state.map.settlements.find((candidate) => candidate.id === tile?.settlementId);
+    return settlement ? `${settlement.name}, ${country?.name ?? 'the wilds'}` : country ? `${country.name} ${country.government}` : 'the wilds';
+  }
 </script>
 
 <main>
@@ -30,20 +39,14 @@
   <section class="hud" aria-live="polite">
     <p class="eyebrow">SEED · {state.seed}</p>
     <h1>{state.paused ? 'The wilds wait' : 'The wilds are listening'}</h1>
-    <p class="instruction">Tap a bright tile to guide the Wayfarer. Explore shrines, ruins, and Ashwood.</p>
+    <p class="instruction">Tap any walkable tile to guide the Wayfarer across the continent.</p>
     <div class="facts">
-      <span class:active={state.facts.villageAlarm}>Ashwood {state.facts.villageAlarm ? 'alarmed' : 'watchful'}</span>
-      <span class:active={state.facts.shrineBlessed}>Shrine {state.facts.shrineBlessed ? 'lit' : 'silent'}</span>
+      <span>{location()}</span>
+      <span>{state.map.countries.length} realms</span>
     </div>
     <div class="buttons">
       <button onclick={togglePause}>{state.paused ? 'Resume' : 'Pause'}</button>
       <button onclick={newWorld}>New world</button>
     </div>
   </section>
-  <aside class="chronicle" aria-label="World events">
-    <p class="eyebrow">CHRONICLE</p>
-    {#each state.events as item (item.id)}
-      <p>{item.text}</p>
-    {/each}
-  </aside>
 </main>
