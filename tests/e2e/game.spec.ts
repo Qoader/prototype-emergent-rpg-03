@@ -28,7 +28,7 @@ test('generates the requested countries, settlements, and compact save', async (
     .poll(() => page.evaluate(() => localStorage.getItem('emberwild-world-v2')))
     .not.toBeNull();
   const world = await page.evaluate(() => JSON.parse(localStorage.getItem('emberwild-world-v2')!));
-  expect(world.version).toBe(2);
+  expect(world.version).toBe(3);
   expect(world.map).toBeUndefined();
   expect(world.countryCount).toBeGreaterThanOrEqual(4);
   expect(world.countryCount).toBeLessThanOrEqual(5);

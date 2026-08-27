@@ -7,6 +7,7 @@
 
   let state: SimulationState = loadWorld() ?? createWorld(randomSeed());
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  saveWorld(state);
 
   function update(next: SimulationState): void {
     state = next;
@@ -16,12 +17,13 @@
 
   function newWorld(): void {
     clearWorld();
-    update(createWorld(randomSeed()));
+    const fresh = createWorld(randomSeed());
+    update(fresh);
+    saveWorld(fresh);
   }
 
   function togglePause(): void {
-    state.paused = !state.paused;
-    update(state);
+    update({ ...state, paused: !state.paused });
   }
 
   function location(): string {
