@@ -92,7 +92,12 @@ export interface WorldSnapshotV2 {
   version: 2;
   seed: string;
   time: number;
-  entities: Array<Omit<Entity, 'position' | 'navigation' | 'speed' | 'wander'> & { position: GridPoint; route: GridPoint[] }>;
+  entities: Array<
+    Omit<Entity, 'position' | 'navigation' | 'speed' | 'wander'> & {
+      position: GridPoint;
+      route: GridPoint[];
+    }
+  >;
   paused: boolean;
   countryCount: number;
   settlementCounts: Record<SettlementKind, number>;

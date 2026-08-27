@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "pnpm format:check && pnpm test:e2e",
     "test:e2e": "playwright test"
   },
   "dependencies": {

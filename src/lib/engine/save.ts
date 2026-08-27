@@ -19,7 +19,8 @@ export function loadWorld(): SimulationState | undefined {
         position: center(entity.position),
         navigation: { waypoints: entity.route, moving: entity.route.length > 0 },
         speed: entity.kind === 'hero' ? 4 : 0.8,
-        wander: entity.kind === 'resident' ? { idleRemainingMs: 1000, decisionCount: 0 } : undefined,
+        wander:
+          entity.kind === 'resident' ? { idleRemainingMs: 1000, decisionCount: 0 } : undefined,
       })) as Entity[];
       state.paused = snapshot.paused;
       return state;
